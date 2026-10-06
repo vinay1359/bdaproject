@@ -1,0 +1,8 @@
+Rossmann Store Sales/
+data/
+web/
+.git/
+node_modules/
+.next/
+__pycache__/
+*.pyc

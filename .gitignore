@@ -1,0 +1,11 @@
+node_modules/
+.next/
+.env
+.env.local
+__pycache__/
+*.pyc
+.pytest_cache/
+data/results/*
+!data/results/.gitkeep
+Rossmann Store Sales/
+data/raw/

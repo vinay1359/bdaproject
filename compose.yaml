@@ -1,0 +1,86 @@
+services:
+  kafka:
+    image: apache/kafka:4.1.1
+    environment:
+      KAFKA_NODE_ID: "1"
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: "1"
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: "1"
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: "1"
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: "0"
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+  namenode:
+    image: apache/hadoop:3.4.3
+    hostname: namenode
+    user: root
+    command: ["bash", "-lc", "if [ ! -d /hadoop/dfs/name/current ]; then hdfs namenode -format -force -nonInteractive; fi; exec hdfs namenode"]
+    ports:
+      - "9870:9870"
+    volumes:
+      - hdfs_name:/hadoop/dfs/name
+      - ./config/hadoop/core-site.xml:/opt/hadoop/etc/hadoop/core-site.xml:ro
+      - ./config/hadoop/hdfs-site.xml:/opt/hadoop/etc/hadoop/hdfs-site.xml:ro
+  datanode:
+    image: apache/hadoop:3.4.3
+    hostname: datanode
+    user: root
+    command: ["hdfs", "datanode"]
+    depends_on:
+      - namenode
+    volumes:
+      - hdfs_data:/hadoop/dfs/data
+      - ./config/hadoop/core-site.xml:/opt/hadoop/etc/hadoop/core-site.xml:ro
+      - ./config/hadoop/hdfs-site.xml:/opt/hadoop/etc/hadoop/hdfs-site.xml:ro
+  job:
+    build:
+      context: .
+      dockerfile: docker/hadoop-job/Dockerfile
+    user: root
+    command: ["sleep", "infinity"]
+    depends_on:
+      - namenode
+      - datanode
+    volumes:
+      - ./config/hadoop/core-site.xml:/opt/hadoop/etc/hadoop/core-site.xml:ro
+      - ./config/hadoop/hdfs-site.xml:/opt/hadoop/etc/hadoop/hdfs-site.xml:ro
+      - ./config/hadoop/mapred-site.xml:/opt/hadoop/etc/hadoop/mapred-site.xml:ro
+      - ./src/jobs:/app/src/jobs:ro
+      - ./tests:/app/tests:ro
+      - ./config:/app/config
+      - ./Rossmann Store Sales:/data/rossmann:ro
+      - ./data/results:/app/data/results
+  ingest:
+    build:
+      context: .
+      dockerfile: docker/ingest/Dockerfile
+    command: ["sleep", "infinity"]
+    depends_on:
+      - kafka
+      - namenode
+      - datanode
+    environment:
+      KAFKA_BOOTSTRAP: kafka:9092
+      WEBHDFS_URL: http://namenode:9870
+    volumes:
+      - ./Rossmann Store Sales:/data/rossmann:ro
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./data/results:/app/data/results:ro
+    environment:
+      RESULTS_FILE: /app/data/results/latest.json
+volumes:
+  kafka_data:
+  hdfs_name:
+  hdfs_data:
