@@ -7,5 +7,3 @@ __pycache__/
 .pytest_cache/
 data/results/*
 !data/results/.gitkeep
-Rossmann Store Sales/
-data/raw/
